@@ -589,3 +589,13 @@ body {
   .icon-btn { min-width: 44px; min-height: 44px; }
   .task-checkbox { min-width: 28px; min-height: 28px; }
 }
+
+/* readability fixes (mobile screenshots review) */
+.task-item.completed { opacity: 1; }
+.task-item.completed .task-text { color: #94a3b8; }
+.task-meta { flex-wrap: wrap; row-gap: 0.35rem; color: #a8b3c7; }
+.task-meta > span, .badge { white-space: nowrap; }
+@media (max-width: 640px) {
+  .task-meta { font-size: 0.8rem; }
+  .task-item { padding: 0.9rem; }
+}
