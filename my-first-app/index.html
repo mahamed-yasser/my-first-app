@@ -103,6 +103,10 @@
                                     <option value="عالية">عالية</option>
                                 </select>
                             </div>
+                            <div class="select-group">
+                                <label for="task-due"><i class="fa-regular fa-calendar"></i> الموعد:</label>
+                                <input type="date" id="task-due" class="date-input">
+                            </div>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fa-solid fa-plus"></i> إضافة المهمة
                             </button>
@@ -111,6 +115,12 @@
                 </div>
 
                 <!-- Task Filters -->
+                <div class="task-tools" role="group" aria-label="أدوات المهام">
+                    <button type="button" class="tool-btn" id="clear-done-btn"><i class="fa-solid fa-broom"></i> مسح المكتملة</button>
+                    <button type="button" class="tool-btn" id="export-btn"><i class="fa-solid fa-download"></i> تصدير</button>
+                    <label class="tool-btn" for="import-file"><i class="fa-solid fa-upload"></i> استيراد</label>
+                    <input type="file" id="import-file" accept="application/json" hidden>
+                </div>
                 <div class="task-filters">
                     <button class="filter-btn active" data-filter="all">الكل</button>
                     <button class="filter-btn" data-filter="pending">قيد الانتظار</button>

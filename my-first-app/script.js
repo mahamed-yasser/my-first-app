@@ -146,6 +146,7 @@ function setupEventListeners() {
             text: text,
             category: taskCategory.value,
             priority: taskPriority.value,
+            due: (document.getElementById('task-due') || {}).value || '',
             completed: false,
             createdAt: new Date().toISOString()
         };
@@ -154,6 +155,7 @@ function setupEventListeners() {
         saveTasks();
         renderAll();
         taskInput.value = '';
+        const dueEl = document.getElementById('task-due'); if (dueEl) dueEl.value = '';
         showToast('تمت إضافة المهمة بنجاح! ✨');
     });
 
@@ -285,22 +287,29 @@ function renderTasks() {
         const li = document.createElement('li');
         li.className = `task-item ${task.completed ? 'completed' : ''}`;
 
+        const today = new Date().toISOString().slice(0, 10);
+        const overdue = task.due && !task.completed && task.due < today;
+        const dueBadge = task.due ? `<span class="badge ${overdue ? 'badge-overdue' : 'badge-due'}"><i class="fa-regular fa-calendar"></i> ${overdue ? 'متأخرة: ' : ''}${escapeHtml(task.due)}</span>` : '';
         li.innerHTML = `
             <div class="task-left">
-                <div class="task-checkbox" onclick="toggleTask('${task.id}')">
+                <div class="task-checkbox" role="checkbox" tabindex="0" aria-checked="${task.completed}" aria-label="تحديد المهمة كمكتملة" onclick="toggleTask('${task.id}')" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleTask('${task.id}')}">
                     ${task.completed ? '<i class="fa-solid fa-check"></i>' : ''}
                 </div>
                 <div class="task-content-wrapper">
                     <span class="task-text">${escapeHtml(task.text)}</span>
                     <div class="task-meta">
                         <span class="badge badge-category">${escapeHtml(task.category)}</span>
-                        <span class="badge priority-${task.priority}">أولوية: ${task.priority}</span>
+                        <span class="badge priority-${escapeHtml(task.priority)}">أولوية: ${escapeHtml(task.priority)}</span>
+                        ${dueBadge}
                         <span><i class="fa-regular fa-clock"></i> ${formatDate(task.createdAt)}</span>
                     </div>
                 </div>
             </div>
             <div class="task-actions">
-                <button class="icon-btn delete-btn" onclick="deleteTask('${task.id}')" title="حذف المهمة">
+                <button class="icon-btn" onclick="editTask('${task.id}')" title="تعديل المهمة" aria-label="تعديل المهمة">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="icon-btn delete-btn" onclick="deleteTask('${task.id}')" title="حذف المهمة" aria-label="حذف المهمة">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
@@ -384,3 +393,52 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+
+// Edit task (inline: replace the text with an input; Enter saves, Escape cancels)
+window.editTask = function(id) {
+    const t = tasks.find(x => x.id === id); if (!t) return;
+    const items = [...tasksList.querySelectorAll('.task-item')];
+    const idx = tasks.filter(task => {
+        if (currentTaskFilter === 'pending' && task.completed) return false;
+        if (currentTaskFilter === 'completed' && !task.completed) return false;
+        if (searchTerm) return task.text.toLowerCase().includes(searchTerm) || task.category.toLowerCase().includes(searchTerm);
+        return true;
+    }).findIndex(x => x.id === id);
+    const span = items[idx] && items[idx].querySelector('.task-text'); if (!span) return;
+    const input = document.createElement('input'); input.type = 'text'; input.value = t.text; input.className = 'edit-input'; input.setAttribute('aria-label', 'نص المهمة');
+    span.replaceWith(input); input.focus(); input.select();
+    const done = (save) => { const v = input.value.trim(); if (save && v) { t.text = v; saveTasks(); showToast('تم تعديل المهمة'); } renderAll(); };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); });
+    input.addEventListener('blur', () => done(true));
+};
+
+// Clear completed / export / import
+document.addEventListener('DOMContentLoaded', () => {
+    const clearBtn = document.getElementById('clear-done-btn'), exp = document.getElementById('export-btn'), imp = document.getElementById('import-file');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        const n = tasks.filter(t => t.completed).length;
+        if (!n) return showToast('لا توجد مهام مكتملة');
+        if (!confirm('حذف ' + n + ' مهمة مكتملة؟')) return;
+        tasks = tasks.filter(t => !t.completed); saveTasks(); renderAll(); showToast('تم مسح المهام المكتملة');
+    });
+    if (exp) exp.addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify({ tasks, notes }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tasks-notes-backup.json'; a.click(); URL.revokeObjectURL(a.href);
+        showToast('تم تصدير نسخة احتياطية');
+    });
+    if (imp) imp.addEventListener('change', () => {
+        const f = imp.files[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+            try {
+                const d = JSON.parse(r.result);
+                const ok = o => o && typeof o.id === 'string' && typeof (o.text || o.title) === 'string';
+                if (!Array.isArray(d.tasks) || !Array.isArray(d.notes) || !d.tasks.every(ok) || !d.notes.every(ok)) throw new Error('shape');
+                tasks = d.tasks; notes = d.notes; saveTasks(); saveNotes(); renderAll(); showToast('تم استيراد البيانات');
+            } catch (e) { showToast('ملف غير صالح، لم يتم تغيير أي بيانات'); }
+            imp.value = '';
+        };
+        r.readAsText(f);
+    });
+});
